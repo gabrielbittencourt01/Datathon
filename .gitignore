@@ -1,0 +1,10 @@
+__pycache__/
+*.pkl
+*.npy
+*.parquet
+*.csv
+*.xlsx
+models/
+.vscode/
+.venv/
+drift_report.html
