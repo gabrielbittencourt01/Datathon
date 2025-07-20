@@ -12,66 +12,88 @@ Criar uma solução de IA que:
 
 ---
 
-## 🗂️ Estrutura do Projeto
+## 🗂️ Estrutura do Projeto e Ordem de Execução
 
-```
-├── api.py                     # API com FastAPI para predição e recomendação
-├── app_streamlit.py           # Interface visual para uso da IA
-├── model_train.py             # Modelo com TF-IDF tradicional
-├── modelo_train_multimodal.py # Modelo final com embeddings + categorias
-├── modelo_train_sbert.py      # Modelo baseado só em SBERT
-├── gerar_embeddings_vagas.py # Gera embeddings das vagas
-├── vaga_recomendada.py        # Script isolado para recomendação
-├── obtecao.py                 # Ingestão e transformação dos arquivos JSON
-├── processamento.py           # Pré-processamento e feature cleaning
-├── feature_engineering.py     # Criação de pipelines de transformação
-├── test_api.py                # Teste com requests da API
-├── test_pipeline.py           # Testes unitários simples
-├── monitoramento.py           # Detecção de drift com evidently
-├── Dockerfile                 # Containerização da API
-├── requirements.txt           # Dependências do projeto
-├── models/                    # Modelos salvos (.pkl, .npy)
-├── base_tratada.csv/parquet   # Dados finais tratados
-├── vagas_unicas.csv           # Base única de vagas
-```
+### 1. `obtecao.py`
 
----
-
-## 🚀 Como Executar Localmente
-
-### 1. Clone o repositório
+Realiza a ingestão e transformação dos arquivos JSON (`applicants`, `prospects`, `jobs`) e gera `dados_unificados.xlsx`.
 
 ```bash
-git clone https://github.com/seu-usuario/recrutamento-ia.git
-cd recrutamento-ia
+python obtecao.py
 ```
 
-### 2. Crie um ambiente virtual
+### 2. `processamento.py`
+
+Faz a limpeza e pré-processamento dos dados. Gera `base_tratada.parquet`.
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-.venv\Scripts\activate     # Windows
+python processamento.py
 ```
 
-### 3. Instale as dependências
+### 3. `feature_engineering.py`
+
+Aplica TF-IDF e OneHotEncoder. Salva os dados vetorizados para treino/teste.
 
 ```bash
-pip install -r requirements.txt
+python feature_engineering.py
 ```
 
-### 4. Inicie a API FastAPI
+### 4. `modelo_train_multimodal.py`
+
+Treina o modelo final combinando embeddings SBERT + dados categóricos. Salva artefatos na pasta `models/`.
+
+```bash
+python modelo_train_multimodal.py
+```
+
+### 5. `gerar_embeddings_vagas.py`
+
+Gera embeddings vetoriais para recomendação de vagas.
+
+```bash
+python gerar_embeddings_vagas.py
+```
+
+### 6. `api.py`
+
+Inicia a API com FastAPI. Contém o endpoint `/analisar_candidato`.
 
 ```bash
 uvicorn api:app --reload
 ```
 
-Acesse: [http://localhost:8000/docs](http://localhost:8000/docs) para testar via Swagger.
+Acesse em: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 5. Teste a API via script
+### 7. `test_api.py`
+
+Testa a API localmente enviando uma requisição de exemplo.
 
 ```bash
 python test_api.py
+```
+
+### 8. `test_pipeline.py`
+
+Executa testes unitários no modelo salvo.
+
+```bash
+pytest test_pipeline.py -v
+```
+
+### 9. `monitoramento.py`
+
+Compara dados recentes com os dados originais e gera um relatório de drift.
+
+```bash
+python monitoramento.py
+```
+
+### 10. `app_streamlit.py`
+
+Executa o app interativo de análise de candidatos e recomendação de vagas.
+
+```bash
+streamlit run app_streamlit.py
 ```
 
 ---
@@ -101,25 +123,6 @@ python monitoramento.py
 ```
 
 Isso gera um arquivo `drift_report.html` que pode ser aberto no navegador.
-
----
-
-## 🌐 Interface Interativa com Streamlit
-
-Para usar o app visual:
-
-```bash
-streamlit run app_streamlit.py
-```
-
-Você verá uma página como:
-
-```
-📋 Análise de Candidato e Recomendação de Vagas
-[ Preencha os dados do candidato ]
-[ CV ]
-[ Botão: Analisar Candidato ]
-```
 
 ---
 
