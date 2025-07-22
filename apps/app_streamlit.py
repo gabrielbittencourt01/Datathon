@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-from sentence_transformers import util
+from sentence_transformers import SentenceTransformer, util
 import os
 import warnings
 
@@ -25,16 +25,22 @@ with st.sidebar:
 # -----------------
 # Carregamento Seguro
 # -----------------
-MODELS_PATH = "models"
+MODELS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models"))
+BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 try:
     modelo = joblib.load(os.path.join(MODELS_PATH, "melhor_modelo_multimodal.pkl"))
     cat_encoder = joblib.load(os.path.join(MODELS_PATH, "cat_encoder.pkl"))
-    sbert_encoder = joblib.load(os.path.join(MODELS_PATH, "sbert_encoder.pkl"))
-    embeddings_vagas = np.load(os.path.join(MODELS_PATH, "vagas_embeddings.npy"))
-    df_vagas = pd.read_csv("vagas_unicas.csv")
+
+    # 🔁 Substitui o uso de arquivo .pkl
+    sbert_encoder = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+
+    embeddings_vagas = np.load(os.path.join(BASE_PATH, "vagas_embeddings.npy"))
+    df_vagas = pd.read_csv(os.path.join(MODELS_PATH, "..", "vagas_unicas.csv"))
 except Exception as e:
     st.error(f"Erro ao carregar modelos ou dados: {e}")
     st.stop()
+
 
 # -----------------
 # Funções
@@ -42,20 +48,31 @@ except Exception as e:
 def gerar_embedding(texto):
     return sbert_encoder.encode([texto])[0]
 
+
 def recomendar_vagas(embedding_cv, top_k=3):
+    if embedding_cv is None or len(embedding_cv) == 0:
+        raise ValueError("Embedding do CV está vazio ou inválido.")
+
     scores = util.cos_sim(embedding_cv, embeddings_vagas)[0]
+    scores = scores.cpu().numpy() if hasattr(scores, "cpu") else np.array(scores)
+
+    if len(scores) == 0 or top_k <= 0:
+        raise ValueError("Não foi possível calcular a similaridade.")
+
     top_indices = np.argsort(scores)[::-1][:top_k]
+
     vagas = []
     for idx in top_indices:
         row = df_vagas.iloc[idx]
         vagas.append({
-            "codigo": int(row["codigo"]),
+            "codigo": int(row["codigo_vaga"]),
             "titulo": row["titulo_vaga"],
             "similaridade": round(float(scores[idx]), 4),
-            "atividades": row["atividades_principais"],
-            "competencias": row["requisitos"]
+            "atividades": row["principais_atividades"],
+            "competencias": row["competencias"]
         })
     return vagas
+
 
 # -----------------
 # Formulário
@@ -65,14 +82,16 @@ with st.form("formulario"):
     cv_texto = st.text_area("Resumo do CV (campo livre)", height=250)
     col1, col2, col3 = st.columns(3)
     with col1:
-        nivel_academico = st.selectbox("Nível Acadêmico", ["Superior Incompleto", "Superior Completo", "Pós", "Mestrado", "Doutorado"])
+        nivel_academico = st.selectbox("Nível Acadêmico",
+                                       ["Superior Incompleto", "Superior Completo", "Pós", "Mestrado", "Doutorado"])
     with col2:
         nivel_ingles = st.selectbox("Nível de Inglês", ["Básico", "Intermediário", "Avançado", "Fluente"])
     with col3:
         nivel_espanhol = st.selectbox("Nível de Espanhol", ["Nenhum", "Básico", "Intermediário", "Avançado", "Fluente"])
 
     tipo_contratacao = st.radio("Tipo de Contratação", ["PJ", "CLT"])
-    area_atuacao = st.selectbox("Área de Atuação", ["Dados", "Desenvolvimento", "Infraestrutura", "Produto", "Design", "Negócios"])
+    area_atuacao = st.selectbox("Área de Atuação",
+                                ["Dados", "Desenvolvimento", "Infraestrutura", "Produto", "Design", "Negócios"])
 
     submit = st.form_submit_button("Analisar Candidato")
 
